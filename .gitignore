@@ -1,5 +1,15 @@
-data/
-outputs/
 venv/
 
+# Dataset
+data/
+
+# Outputs
+outputs/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# VSCode
+.vscode/
 
