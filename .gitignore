@@ -13,3 +13,6 @@ __pycache__/
 # VSCode
 .vscode/
 
+# Benchmarks
+bench/preds/
+bench/results/
