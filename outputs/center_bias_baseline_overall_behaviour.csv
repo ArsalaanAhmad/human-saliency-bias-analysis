@@ -1,0 +1,2 @@
+model,num_images,num_categories,model_entropy,model_center_distance,model_num_peaks,model_nss,model_cc,model_auc
+center_bias_baseline,2000,20,13.587533950805664,265.9974553741141,1.0,1.6963554250001907,0.5360562973567421,0.8439288344979287

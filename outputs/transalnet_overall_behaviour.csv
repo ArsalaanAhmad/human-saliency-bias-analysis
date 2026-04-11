@@ -1,0 +1,2 @@
+model,num_images,num_categories,model_entropy,model_center_distance,model_num_peaks,model_nss,model_cc,model_auc
+transalnet,1000,20,14.072756098747254,443.7836934270752,12.442,0.8697918138904497,0.28482356769695116,0.7362590017318725

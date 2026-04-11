@@ -1,0 +1,2 @@
+model,num_images,num_categories,model_entropy,model_center_distance,model_num_peaks,model_nss,model_cc,model_auc
+deepgazeiie,700,20,12.949805133002146,260.94312401832303,9.554285714285715,1.9645670261553356,0.5996148344278015,0.8667881995439529

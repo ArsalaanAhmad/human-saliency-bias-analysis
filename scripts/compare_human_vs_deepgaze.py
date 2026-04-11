@@ -11,7 +11,7 @@ human = human_stats.merge(
 )
 
 # DeepGaze results
-deepgaze = pd.read_csv("outputs/deepgaze_iie_per_category_behaviour.csv")
+deepgaze = pd.read_csv("outputs/samresnet_per_category_behaviour.csv")
 
 # Merge human vs model
 merged = human.merge(deepgaze, on="category")
@@ -21,7 +21,7 @@ merged["delta_entropy"] = merged["model_entropy"] - merged["mean_entropy"]
 merged["delta_center_distance"] = merged["model_center_distance"] - merged["mean_center_distance"]
 merged["delta_num_peaks"] = merged["model_num_peaks"] - merged["mean_num_peaks"]
 
-merged.to_csv("outputs/human_vs_deepgaze_comparison.csv", index=False)
+merged.to_csv("outputs/human_vs_samresnet_comparison.csv", index=False)
 
 print(merged[[
     "category",

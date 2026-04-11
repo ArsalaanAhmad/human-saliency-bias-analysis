@@ -1,0 +1,2 @@
+model_name,matched_rows,mean_delta_entropy,mean_delta_center_distance,mean_delta_num_peaks
+samresnet,2000,7.150545641422272,18.82517678180641,95.1575

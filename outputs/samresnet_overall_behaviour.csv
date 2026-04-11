@@ -1,0 +1,2 @@
+model,num_images,num_categories,model_entropy,model_center_distance,model_num_peaks,model_nss,model_cc,model_auc
+samresnet,2000,20,13.229613658905029,261.123088848074,98.456,2.529128408432007,0.775549952135143,0.8823500308394432
