@@ -1,0 +1,3 @@
+model_name,threshold_ratio,neighborhood,mean_delta_num_peaks
+deepgazeiie,0.5,35,8.384285714285713
+samresnet,0.5,35,69.888

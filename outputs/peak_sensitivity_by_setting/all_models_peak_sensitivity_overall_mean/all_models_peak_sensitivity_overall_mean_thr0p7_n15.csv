@@ -1,0 +1,3 @@
+model_name,threshold_ratio,neighborhood,mean_model_num_peaks
+deepgazeiie,0.7,15,7.954285714285715
+samresnet,0.7,15,72.5305

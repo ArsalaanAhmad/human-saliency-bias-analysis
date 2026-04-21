@@ -12,7 +12,7 @@ from metrics import auc_judd, cc, density_from_fixation_map, nss
 
 FIX_ROOT = Path("data/FIXATIONLOCS")
 GAUSSIAN_SIGMA = 15
-MAX_IMAGES_TOTAL = int(os.getenv("MAX_IMAGES_TOTAL", "0"))
+MAX_IMAGES_PER_CATEGORY = int(os.getenv("MAX_IMAGES_PER_CATEGORY", "50"))
 
 # DeepGaze IIE example:
 # MODEL_NAME = "deepgaze_iie"
@@ -92,7 +92,6 @@ def load_fixation_map(category, image_name, target_shape):
     return fixation_map
 
 rows = []
-processed_images = 0
 
 prediction_patterns = ["*.npy", "*.jpg", "*.jpeg", "*.png", "*.bmp", "*.tif", "*.tiff"]
 
@@ -101,9 +100,11 @@ for cat_dir in sorted([p for p in PRED_ROOT.iterdir() if p.is_dir()]):
     for pattern in prediction_patterns:
         prediction_files.extend(cat_dir.glob(pattern))
 
-    for pred_path in tqdm(sorted(prediction_files), desc=f"Analysing {cat_dir.name}"):
-        if MAX_IMAGES_TOTAL > 0 and processed_images >= MAX_IMAGES_TOTAL:
-            break
+    sorted_predictions = sorted(prediction_files)
+    if MAX_IMAGES_PER_CATEGORY > 0:
+        sorted_predictions = sorted_predictions[:MAX_IMAGES_PER_CATEGORY]
+
+    for pred_path in tqdm(sorted_predictions, desc=f"Analysing {cat_dir.name}"):
 
         prediction = load_prediction_array(pred_path)
         prob_map = prediction_to_prob_map(prediction)
@@ -125,11 +126,6 @@ for cat_dir in sorted([p for p in PRED_ROOT.iterdir() if p.is_dir()]):
             "model_cc": cc(prob_map, fixation_density),
             "model_auc": auc_judd(prob_map, fixation_map),
         })
-        processed_images += 1
-
-    if MAX_IMAGES_TOTAL > 0 and processed_images >= MAX_IMAGES_TOTAL:
-        print(f"Reached MAX_IMAGES_TOTAL={MAX_IMAGES_TOTAL}; stopping early.")
-        break
 
 
 

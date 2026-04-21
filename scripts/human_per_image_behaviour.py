@@ -13,7 +13,7 @@ OUTPUT_PATH = Path("outputs/human_per_image_behaviour.csv")
 
 GAUSSIAN_SIGMA = 15
 PEAK_THRESHOLD = 0.6
-PEAK_NEIGHBORHOOD = 31
+PEAK_NEIGHBORHOOD = 25
 
 
 def compute_entropy(fixation_map: np.ndarray) -> float:

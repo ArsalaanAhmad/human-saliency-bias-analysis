@@ -99,10 +99,9 @@ def run_evaluation(
     sigma_ratio: float,
     threshold_ratio: float,
     neighborhood: int,
-    max_images: int | None,
+    max_images_per_category: int | None,
 ) -> None:
     rows: list[dict[str, object]] = []
-    processed = 0
 
     categories = sorted([p for p in fix_root.iterdir() if p.is_dir()])
     if not categories:
@@ -110,9 +109,10 @@ def run_evaluation(
 
     for category_dir in categories:
         mat_files = sorted(category_dir.glob("*.mat"))
+        if max_images_per_category is not None and max_images_per_category > 0:
+            mat_files = mat_files[:max_images_per_category]
+
         for fixation_path in tqdm(mat_files, desc=f"Analysing {category_dir.name}"):
-            if max_images is not None and processed >= max_images:
-                break
 
             fixation_map = load_fixation_map(fixation_path)
             if fixation_map is None:
@@ -142,10 +142,6 @@ def run_evaluation(
                     "model_auc": auc_judd(prob_map, fixation_map),
                 }
             )
-            processed += 1
-
-        if max_images is not None and processed >= max_images:
-            break
 
     if not rows:
         raise RuntimeError("No valid fixation maps were processed.")
@@ -229,10 +225,10 @@ def parse_args() -> argparse.Namespace:
         help="Neighborhood size for local-max peak counting.",
     )
     parser.add_argument(
-        "--max-images",
+        "--max-images-per-category",
         type=int,
-        default=None,
-        help="Optional cap for quick smoke tests.",
+        default=50,
+        help="Optional cap per category (default: 50). Use 0 or negative to disable cap.",
     )
     return parser.parse_args()
 
@@ -245,7 +241,7 @@ if __name__ == "__main__":
         sigma_ratio=args.sigma_ratio,
         threshold_ratio=args.threshold_ratio,
         neighborhood=args.neighborhood,
-        max_images=args.max_images,
+        max_images_per_category=args.max_images_per_category,
     )
 
 

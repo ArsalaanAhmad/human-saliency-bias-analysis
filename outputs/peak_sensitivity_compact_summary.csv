@@ -1,0 +1,10 @@
+threshold_ratio,neighborhood,model_order,ordering_stable_vs_baseline,top_categories,same_high_mismatch_as_baseline,overlap_with_baseline
+0.5,15,deepgazeiie > samresnet,True,Satelite | Inverted | Pattern | Fractal | LineDrawing,True,5
+0.5,25,deepgazeiie > samresnet,True,Satelite | Inverted | Pattern | Fractal | LineDrawing,True,5
+0.5,35,deepgazeiie > samresnet,True,Satelite | Inverted | Pattern | Fractal | LineDrawing,True,5
+0.6,15,deepgazeiie > samresnet,True,Satelite | Inverted | Pattern | Fractal | LineDrawing,True,5
+0.6,25,deepgazeiie > samresnet,True,Satelite | Inverted | Pattern | Fractal | LineDrawing,True,5
+0.6,35,deepgazeiie > samresnet,True,Satelite | Inverted | Fractal | Pattern | LineDrawing,True,5
+0.7,15,deepgazeiie > samresnet,True,Satelite | Inverted | Fractal | Pattern | LineDrawing,True,5
+0.7,25,deepgazeiie > samresnet,True,Satelite | Inverted | Fractal | Pattern | LineDrawing,True,5
+0.7,35,deepgazeiie > samresnet,True,Satelite | Inverted | Fractal | Pattern | LineDrawing,True,5

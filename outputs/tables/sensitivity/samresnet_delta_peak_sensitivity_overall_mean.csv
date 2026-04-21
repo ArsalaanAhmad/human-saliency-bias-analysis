@@ -1,0 +1,10 @@
+model_name,threshold_ratio,neighborhood,mean_delta_num_peaks
+samresnet,0.5,15,69.888
+samresnet,0.5,25,69.888
+samresnet,0.5,35,69.888
+samresnet,0.6,15,69.888
+samresnet,0.6,25,69.888
+samresnet,0.6,35,69.888
+samresnet,0.7,15,69.888
+samresnet,0.7,25,69.888
+samresnet,0.7,35,69.888

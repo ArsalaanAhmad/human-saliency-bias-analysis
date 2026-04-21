@@ -1,0 +1,10 @@
+model_name,threshold_ratio,neighborhood,mean_delta_num_peaks
+deepgazeiie,0.5,15,8.857142857142858
+deepgazeiie,0.5,25,8.521428571428572
+deepgazeiie,0.5,35,8.384285714285713
+deepgazeiie,0.6,15,6.555714285714286
+deepgazeiie,0.6,25,6.352857142857143
+deepgazeiie,0.6,35,6.25
+deepgazeiie,0.7,15,4.941428571428571
+deepgazeiie,0.7,25,4.801428571428572
+deepgazeiie,0.7,35,4.735714285714286
