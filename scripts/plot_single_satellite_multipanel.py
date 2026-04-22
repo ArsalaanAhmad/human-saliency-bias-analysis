@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Tuple
+from typing import Iterable, List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,16 +16,33 @@ from scipy.stats import entropy
 # CONFIG (edit these paths/settings)
 # ============================================================
 CATEGORY = "Satelite"  # CAT2000 category name in this dataset spelling
-IMAGE_STEM = "001"     # e.g., 001, 003, 005
+IMAGE_STEM: str | None = "069"  # Preferred high-contrast example; set to None to auto-pick best available stem
 
-# CAT2000 roots (use either your trainSet paths or project-relative data paths)
-STIM_ROOT = Path("C:/trainSet/Stimuli")
-FIX_ROOT = Path("C:/trainSet/FIXATIONLOCS")
+# CAT2000 roots (first existing path is used)
+STIM_ROOT_CANDIDATES = [Path("data/Stimuli"), Path("C:/trainSet/Stimuli")]
+FIX_ROOT_CANDIDATES = [Path("data/FIXATIONLOCS"), Path("C:/trainSet/FIXATIONLOCS")]
 
-# Model prediction roots (each should contain category folders with maps)
-DEEPGAZE_ROOT = Path("outputs/deepgaze_iie_cat2000")
-SAMRESNET_ROOT = Path("outputs/samresnet_cat2000")
-TRANSALNET_ROOT = Path("outputs/transalnet_cat2000")
+# Model prediction roots (first existing path per model is used)
+DEEPGAZE_ROOT_CANDIDATES = [
+    Path("D:/outputs/deepgaze_iie_cat2000"),
+    Path("D:/outputs/deepgazeiie_cat2000"),
+    Path("D:/outputs/deepgaze_iie_cat2000_50"),
+    Path("outputs/deepgaze_iie_cat2000"),
+    Path("outputs/deepgazeiie_cat2000"),
+    Path("bench/preds/deepgaze_iie_cat2000"),
+]
+SAMRESNET_ROOT_CANDIDATES = [
+    Path("D:/outputs/samresnet_cat2000"),
+    Path("D:/outputs/sam-resnet_cat2000"),
+    Path("outputs/samresnet_cat2000"),
+    Path("bench/preds/samresnet_cat2000"),
+]
+TRANSALNET_ROOT_CANDIDATES = [
+    Path("D:/outputs/transalnet_cat2000"),
+    Path("D:/outputs/transalnet_cat2000_50"),
+    Path("outputs/transalnet_cat2000"),
+    Path("bench/preds/transalnet_cat2000"),
+]
 
 # If True, also include center-bias panel.
 INCLUDE_CENTER_BIAS = True
@@ -57,9 +74,49 @@ class PanelData:
     missing_reason: str = ""
 
 
+@dataclass
+class ModelSpec:
+    name: str
+    root: Path | None
+    is_log_density: bool
+
+
 def load_rgb_image(path: Path) -> np.ndarray:
     image = Image.open(path).convert("RGB")
     return np.asarray(image, dtype=np.uint8)
+
+
+def resolve_existing_root(candidates: Iterable[Path]) -> Path | None:
+    for path in candidates:
+        if path.exists():
+            return path
+    return None
+
+
+def resolve_category_dir(root: Path, category: str) -> Path | None:
+    if not root.exists():
+        return None
+
+    wanted = category.casefold()
+    aliases = {wanted}
+    if wanted == "satelite":
+        aliases.add("satellite")
+    if wanted == "satellite":
+        aliases.add("satelite")
+
+    for child in root.iterdir():
+        if child.is_dir() and child.name.casefold() in aliases:
+            return child
+
+    return None
+
+
+def list_stems(folder: Path, exts: tuple[str, ...]) -> set[str]:
+    stems: set[str] = set()
+    for ext in exts:
+        for path in folder.glob(f"*{ext}"):
+            stems.add(path.stem)
+    return stems
 
 
 def load_fixation_map(path: Path) -> np.ndarray:
@@ -126,6 +183,14 @@ def find_prediction_file(root: Path, category: str, stem: str) -> Path | None:
         if candidate.exists():
             return candidate
 
+    # Fallback: recursive search for stem.ext under root/category.
+    cat_dir = resolve_category_dir(root, category)
+    if cat_dir is not None:
+        for ext in exts:
+            matches = list(cat_dir.rglob(f"{stem}{ext}"))
+            if matches:
+                return matches[0]
+
     return None
 
 
@@ -191,7 +256,10 @@ def panel_stats_text(prob_map: np.ndarray) -> str:
     )
 
 
-def build_model_panel(name: str, root: Path, category: str, stem: str, shape: Tuple[int, int], is_log_density: bool) -> PanelData:
+def build_model_panel(name: str, root: Path | None, category: str, stem: str, shape: Tuple[int, int], is_log_density: bool) -> PanelData:
+    if root is None:
+        return PanelData(name=name, map_data=None, is_missing=True, missing_reason="prediction root not found")
+
     if not root.exists():
         return PanelData(name=name, map_data=None, is_missing=True, missing_reason=f"root not found: {root}")
 
@@ -205,6 +273,64 @@ def build_model_panel(name: str, root: Path, category: str, stem: str, shape: Tu
         return PanelData(name=name, map_data=None, is_missing=True, missing_reason=str(exc))
 
     return PanelData(name=name, map_data=pred_map, is_missing=False)
+
+
+def mean_abs_difference(a: np.ndarray, b: np.ndarray) -> float:
+    return float(np.mean(np.abs(a.astype(np.float32) - b.astype(np.float32))))
+
+
+def choose_best_stem(
+    stem_candidates: list[str],
+    stim_category_dir: Path,
+    fix_category_dir: Path,
+    model_specs: list[ModelSpec],
+) -> tuple[str, float]:
+    best_stem = stem_candidates[0]
+    best_score = float("-inf")
+
+    for stem in stem_candidates:
+        stim_path = None
+        for ext in (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"):
+            candidate = stim_category_dir / f"{stem}{ext}"
+            if candidate.exists():
+                stim_path = candidate
+                break
+
+        fix_path = fix_category_dir / f"{stem}.mat"
+        if stim_path is None or not fix_path.exists():
+            continue
+
+        image_rgb = load_rgb_image(stim_path)
+        target_shape = (image_rgb.shape[0], image_rgb.shape[1])
+
+        fix_map = load_fixation_map(fix_path)
+        fix_map = resize_nearest(fix_map, target_shape)
+        human_map = normalize_to_prob(density_from_fixation_map(fix_map, sigma=HUMAN_DENSITY_SIGMA), is_log_density=False)
+
+        scores: list[float] = []
+        for spec in model_specs:
+            if spec.root is None:
+                continue
+            pred_path = find_prediction_file(spec.root, CATEGORY, stem)
+            if pred_path is None:
+                continue
+
+            try:
+                model_map = load_prediction_map(pred_path, target_shape=target_shape, is_log_density=spec.is_log_density)
+            except Exception:
+                continue
+
+            scores.append(mean_abs_difference(human_map, model_map))
+
+        if not scores:
+            continue
+
+        score = float(np.mean(scores))
+        if score > best_score:
+            best_score = score
+            best_stem = stem
+
+    return best_stem, best_score
 
 
 def draw_panel(ax: plt.Axes, panel: PanelData, show_peaks: bool, show_stats: bool) -> None:
@@ -240,11 +366,58 @@ def draw_panel(ax: plt.Axes, panel: PanelData, show_peaks: bool, show_stats: boo
 
 
 def main() -> None:
-    stim_path = STIM_ROOT / CATEGORY / f"{IMAGE_STEM}.jpg"
-    fix_path = FIX_ROOT / CATEGORY / f"{IMAGE_STEM}.mat"
+    stim_root = resolve_existing_root(STIM_ROOT_CANDIDATES)
+    fix_root = resolve_existing_root(FIX_ROOT_CANDIDATES)
+    if stim_root is None:
+        raise FileNotFoundError(f"No stimulus root found in candidates: {STIM_ROOT_CANDIDATES}")
+    if fix_root is None:
+        raise FileNotFoundError(f"No fixation root found in candidates: {FIX_ROOT_CANDIDATES}")
 
-    if not stim_path.exists():
-        raise FileNotFoundError(f"Image not found: {stim_path}")
+    stim_category_dir = resolve_category_dir(stim_root, CATEGORY)
+    fix_category_dir = resolve_category_dir(fix_root, CATEGORY)
+    if stim_category_dir is None:
+        raise FileNotFoundError(f"Category '{CATEGORY}' not found under {stim_root}")
+    if fix_category_dir is None:
+        raise FileNotFoundError(f"Category '{CATEGORY}' not found under {fix_root}")
+
+    model_specs: List[ModelSpec] = [
+        ModelSpec("DeepGaze IIE", resolve_existing_root(DEEPGAZE_ROOT_CANDIDATES), True),
+        ModelSpec("SAM-ResNet", resolve_existing_root(SAMRESNET_ROOT_CANDIDATES), False),
+        ModelSpec("TranSalNet", resolve_existing_root(TRANSALNET_ROOT_CANDIDATES), False),
+    ]
+
+    chosen_stem = IMAGE_STEM
+    chosen_score = float("nan")
+    if chosen_stem is not None:
+        has_stim = any((stim_category_dir / f"{chosen_stem}{ext}").exists() for ext in (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"))
+        has_fix = (fix_category_dir / f"{chosen_stem}.mat").exists()
+        if not (has_stim and has_fix):
+            chosen_stem = None
+
+    if chosen_stem is None:
+        img_stems = list_stems(stim_category_dir, (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"))
+        fix_stems = list_stems(fix_category_dir, (".mat",))
+        candidate_stems = sorted(img_stems & fix_stems)
+        if not candidate_stems:
+            raise RuntimeError("No shared stems between stimuli and fixation files for selected category")
+
+        chosen_stem, chosen_score = choose_best_stem(
+            stem_candidates=candidate_stems,
+            stim_category_dir=stim_category_dir,
+            fix_category_dir=fix_category_dir,
+            model_specs=model_specs,
+        )
+
+    stim_path = None
+    for ext in (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"):
+        p = stim_category_dir / f"{chosen_stem}{ext}"
+        if p.exists():
+            stim_path = p
+            break
+    if stim_path is None:
+        raise FileNotFoundError(f"Image not found for stem '{chosen_stem}' in {stim_category_dir}")
+
+    fix_path = fix_category_dir / f"{chosen_stem}.mat"
     if not fix_path.exists():
         raise FileNotFoundError(f"Fixation map not found: {fix_path}")
 
@@ -258,30 +431,9 @@ def main() -> None:
     panels: List[PanelData] = [
         PanelData(name="Original image", map_data=None, is_missing=False),
         PanelData(name="Human attention map", map_data=human_map, is_missing=False),
-        build_model_panel(
-            name="DeepGaze IIE",
-            root=DEEPGAZE_ROOT,
-            category=CATEGORY,
-            stem=IMAGE_STEM,
-            shape=target_shape,
-            is_log_density=True,
-        ),
-        build_model_panel(
-            name="SAM-ResNet",
-            root=SAMRESNET_ROOT,
-            category=CATEGORY,
-            stem=IMAGE_STEM,
-            shape=target_shape,
-            is_log_density=False,
-        ),
-        build_model_panel(
-            name="TranSalNet",
-            root=TRANSALNET_ROOT,
-            category=CATEGORY,
-            stem=IMAGE_STEM,
-            shape=target_shape,
-            is_log_density=False,
-        ),
+        build_model_panel(name="DeepGaze IIE", root=model_specs[0].root, category=CATEGORY, stem=chosen_stem, shape=target_shape, is_log_density=True),
+        build_model_panel(name="SAM-ResNet", root=model_specs[1].root, category=CATEGORY, stem=chosen_stem, shape=target_shape, is_log_density=False),
+        build_model_panel(name="TranSalNet", root=model_specs[2].root, category=CATEGORY, stem=chosen_stem, shape=target_shape, is_log_density=False),
     ]
 
     if INCLUDE_CENTER_BIAS:
@@ -309,7 +461,7 @@ def main() -> None:
         ax.axis("off")
 
     fig.suptitle(
-        f"Single-image Saliency Comparison ({CATEGORY} {IMAGE_STEM})",
+        f"Single-image Saliency Comparison ({CATEGORY} {chosen_stem})",
         fontsize=14,
         y=0.99,
     )
@@ -322,6 +474,13 @@ def main() -> None:
 
     print(f"Saved: {OUTPUT_FIG}")
     print(f"Saved: {OUTPUT_PDF}")
+    print(f"Stimuli root: {stim_root}")
+    print(f"Fixation root: {fix_root}")
+    print(f"Chosen stem: {chosen_stem}")
+    if np.isfinite(chosen_score):
+        print(f"Chosen mismatch score: {chosen_score:.6f}")
+    for spec in model_specs:
+        print(f"{spec.name} root: {spec.root if spec.root is not None else 'MISSING'}")
 
 
 if __name__ == "__main__":

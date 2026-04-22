@@ -42,12 +42,12 @@ MODEL_CONFIGS: list[dict[str, Any]] = [
         "model_name": "samresnet",
         "pred_root": "D:/outputs/sam-resnet_cat2000",
         "extension": ".jpg",
-        "is_log_density": True,
+        "is_log_density": False,
     },
     {
         "model_name": "transalnet",
         "pred_root": "D:/outputs/transalnet_cat2000_50",
-        "extension": ".jpg",
+        "extension": ".npy",
         "is_log_density": False,
     },
 ]
